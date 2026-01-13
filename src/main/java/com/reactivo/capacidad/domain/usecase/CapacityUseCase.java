@@ -7,13 +7,20 @@ import com.reactivo.capacidad.domain.exceptions.BusinessException;
 import com.reactivo.capacidad.domain.model.Capacity;
 import com.reactivo.capacidad.domain.model.CapacityIdTechnologies;
 import com.reactivo.capacidad.domain.model.CapacityTechnology;
+import com.reactivo.capacidad.domain.model.CapacityWithTechnologies;
+import com.reactivo.capacidad.domain.model.PagedCapacityResponse;
+import com.reactivo.capacidad.domain.model.TechnologySummary;
 import com.reactivo.capacidad.domain.spi.CapacityPersistencePort;
 import com.reactivo.capacidad.domain.spi.CapacityTechnologyClientPort;
 import com.reactivo.capacidad.domain.utils.ValidationHelper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 public class CapacityUseCase implements CapacityServicePort {
 
@@ -47,6 +54,40 @@ public class CapacityUseCase implements CapacityServicePort {
                 ));
     }
 
+    @Override
+    public Mono<PagedCapacityResponse> findPagedCapacities(int page, int size, String sortBy, boolean asc) {
+        Mono<Long> totalItemsMono = capacityPersistencePort.countAll();
+
+        if ("technologyCount".equalsIgnoreCase(sortBy)) {
+            return Mono.empty();
+//            return capacityTechnologyClientPort.findTechnologiesByCapacityIdsPaged(page, size, asc)
+//                    .flatMap(techMap -> {
+//                        List<Long> capacityIds = new ArrayList<>(techMap.keySet());
+//                        return capacityPersistencePort.findByIds(capacityIds).collectList()
+//                                .zipWith(totalItemsMono)
+//                                .map(tuple -> buildResponsePagedCapacityResponse(
+//                                        tuple.getT1(),
+//                                        techMap,
+//                                        page,
+//                                        size,
+//                                        tuple.getT2()
+//                                ));
+//                    });
+        } else {
+            Flux<Capacity> capacitiesFlux = capacityPersistencePort.findAllPaged(page, size, "name", asc);
+            return Mono.zip(capacitiesFlux.collectList(), totalItemsMono)
+                    .flatMap(tuple -> {
+                        List<Capacity> capacities = tuple.getT1();
+                        long totalItems = tuple.getT2();
+                        List<Long> capacityIds = capacities.stream()
+                                .map(Capacity::id)
+                                .toList();
+                        return capacityTechnologyClientPort.findTechnologiesByCapacityIds(capacityIds)
+                                .map(techMap -> buildResponsePagedCapacityResponse(capacities, capacityIds, techMap, page, size, totalItems));
+                    });
+        }
+    }
+
     private Mono<Void> saveTechnologies(Capacity capacity, List<Long> techIds) {
         return capacityTechnologyClientPort.saveAll(
                 Flux.fromIterable(techIds)
@@ -61,4 +102,50 @@ public class CapacityUseCase implements CapacityServicePort {
     private Capacity createCapacity(CapacityIdTechnologies cap) {
         return new Capacity(null, cap.name(), cap.description());
     }
+
+    private PagedCapacityResponse buildResponsePagedCapacityResponse(
+            List<Capacity> capacities,
+            List<Long> orderedCapacityIds,
+            Map<Long, List<TechnologySummary>> technologiesByCapacity,
+            int page,
+            int size,
+            long totalItems
+    ) {
+        List<CapacityWithTechnologies> items = new ArrayList<>();
+        for (Long capacityId : orderedCapacityIds) {
+            Capacity cap = capacities.stream()
+                    .filter(c -> c.id().equals(capacityId))
+                    .findFirst()
+                    .orElseThrow();
+
+            List<TechnologySummary> techs = technologiesByCapacity.getOrDefault(capacityId, Collections.emptyList())
+                    .stream()
+                    .sorted(Comparator.comparing(TechnologySummary::id))
+                    .toList();
+
+            items.add(new CapacityWithTechnologies(cap.id(), cap.name(), cap.description(), techs));
+        }
+
+        return new PagedCapacityResponse(items, page, size, totalItems);
+    }
+
+//    private PagedCapacityResponse buildResponsePagedCapacityResponse(
+//            List<Capacity> capacities,
+//            Map<Long, List<TechnologySummary>> technologiesByCapacity,
+//            int page,
+//            int size,
+//            long totalItems
+//    ) {
+//        List<CapacityWithTechnologies> items = capacities.stream()
+//                .map(cap -> new CapacityWithTechnologies(
+//                        cap.id(),
+//                        cap.name(),
+//                        cap.description(),
+//                        technologiesByCapacity.getOrDefault(cap.id(), Collections.emptyList())
+//                ))
+//                .toList();
+//
+//        return new PagedCapacityResponse(items, page, size, totalItems);
+//    }
+
 }

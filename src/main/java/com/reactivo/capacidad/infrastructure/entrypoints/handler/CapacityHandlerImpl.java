@@ -106,5 +106,36 @@ public class CapacityHandlerImpl {
                                         .build())));
     }
 
+    public Mono<ServerResponse> getPagedCapacities(ServerRequest request) {
+        String messageId = handlerUtils.getMessageId(request);
+        String token = request.headers().firstHeader(HttpHeaders.AUTHORIZATION);
+
+        int page = Integer.parseInt(request.queryParam("page").orElse("0"));
+        int size = Integer.parseInt(request.queryParam("size").orElse("10"));
+        String sortBy = request.queryParam("sortBy").orElse("name");
+        boolean asc = Boolean.parseBoolean(request.queryParam("asc").orElse("true"));
+
+        return capacityServicePort.findPagedCapacities(page, size, sortBy, asc)
+                .flatMap(pagedResponse ->
+                        ServerResponse.ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(pagedResponse)
+                )
+                .contextWrite(ctx -> {
+                    if (messageId != null) ctx = ctx.put(X_MESSAGE_ID, messageId);
+                    if (token != null) ctx = ctx.put(AUTH_TOKEN, token);
+                    return ctx;
+                })
+                .doOnError(ex -> log.error("Error fetching paged capacities. messageId={}", messageId, ex))
+                .onErrorResume(ex ->
+                        handlerUtils.buildErrorResponse(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                messageId,
+                                TechnicalMessage.INTERNAL_ERROR,
+                                List.of(ErrorDTO.builder()
+                                        .code(TechnicalMessage.INTERNAL_ERROR.getCode())
+                                        .message(TechnicalMessage.INTERNAL_ERROR.getMessage())
+                                        .build())));
+    }
 }
 
