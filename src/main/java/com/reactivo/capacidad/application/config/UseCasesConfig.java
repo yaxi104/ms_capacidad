@@ -13,6 +13,7 @@ import com.reactivo.capacidad.infrastructure.adapters.persistence.capacity.repos
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -24,10 +25,11 @@ public class UseCasesConfig {
     private final CapacityEntityMapper capacityEntityMapper;
     private final WebClient capacityTechnologyWebClient;
     private final TransactionalOperator transactionalOperator;
+    private final DatabaseClient databaseClient;
 
     @Bean
     public CapacityPersistencePort capacityPersistencePort() {
-        return new CapacityPersistenceAdapter(capacityRepository, capacityEntityMapper);
+        return new CapacityPersistenceAdapter(capacityRepository, capacityEntityMapper, databaseClient);
     }
 
     @Bean

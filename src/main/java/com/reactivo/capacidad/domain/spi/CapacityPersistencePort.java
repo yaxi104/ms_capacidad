@@ -15,4 +15,11 @@ public interface CapacityPersistencePort {
     Mono<Boolean> existByName(String name);
 
     Mono<Void> deleteById(Long id);
+
+    Flux<Capacity> findAllPaged(int page, int size, String sortBy, boolean asc);
+
+    Mono<Long> countAll();
+
+    Flux<Capacity> findByIds(List<Long> ids);
+
 }
