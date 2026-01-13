@@ -14,4 +14,5 @@ public interface CapacityTechnologyClientPort {
 
     Mono<Map<Long, List<TechnologySummary>>> findTechnologiesByCapacityIds(List<Long> capacityIds);
 
+    Mono<Map<Long, List<TechnologySummary>>> getCapacityIdGroupedTechnologies(int page, int size, boolean asc);
 }

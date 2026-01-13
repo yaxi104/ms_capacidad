@@ -62,8 +62,34 @@ public class CapacityTechnologyClientAdapter implements CapacityTechnologyClient
                                 Map.Entry::getKey,
                                 e -> e.getValue().stream()
                                         .map(r -> new TechnologySummary(r.id(), r.name()))
-                                        .collect(Collectors.toList())
+                                        .toList()
                         )));
+    }
+
+    @Override
+    @CircuitBreaker(name = "capacityTechnology", fallbackMethod = "getGroupedTechnologiesFallback")
+    @Retry(name = "capacityTechnologyRetry")
+    @Bulkhead(name = "capacityTechnologyBulkhead")
+    public Mono<Map<Long, List<TechnologySummary>>> getCapacityIdGroupedTechnologies(int page, int size, boolean asc) {
+        return capacityTechnologyWebClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/capacidad-tecnologias")
+                        .queryParam("page", page)
+                        .queryParam("size", size)
+                        .queryParam("asc", asc)
+                        .build()
+                )
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<Long, List<TechnologySummaryResponse>>>() {
+                })
+                .map(map -> map.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> e.getValue().stream()
+                                        .map(r -> new TechnologySummary(r.id(), r.name()))
+                                        .toList()
+                        ))
+                );
     }
 
     @SuppressWarnings("unused")
@@ -75,6 +101,12 @@ public class CapacityTechnologyClientAdapter implements CapacityTechnologyClient
     @SuppressWarnings("unused")
     private Mono<Map<Long, List<TechnologySummary>>> findTechnologiesFallback(List<Long> capacityIds, Throwable ex) {
         log.warn("Fallback executed for findTechnologiesByCapacityIds due to: {}", ex.toString());
+        return Mono.just(Collections.emptyMap());
+    }
+
+    @SuppressWarnings("unused")
+    private Mono<Map<Long, List<TechnologySummary>>> getGroupedTechnologiesFallback(int page, int size, boolean asc, Throwable ex) {
+        log.warn("Fallback executed for getCapacityIdGroupedTechnologies due to: {}", ex.toString());
         return Mono.just(Collections.emptyMap());
     }
 
