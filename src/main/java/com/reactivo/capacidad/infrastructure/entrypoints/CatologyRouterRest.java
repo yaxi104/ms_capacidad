@@ -17,6 +17,6 @@ public class CatologyRouterRest {
     @Bean("capacityyRouter")
     public RouterFunction<ServerResponse> routerFunction(CapacityHandlerImpl capacityHandler) {
         return RouterFunctions
-                .route(POST("/capacidad").and(accept(MediaType.APPLICATION_JSON)), capacityHandler::createCapacity);
+                .route(POST("/capacidades").and(accept(MediaType.APPLICATION_JSON)), capacityHandler::createCapacity);
     }
 }
