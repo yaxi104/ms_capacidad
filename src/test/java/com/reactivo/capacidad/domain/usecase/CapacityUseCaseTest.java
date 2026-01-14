@@ -77,7 +77,7 @@ class CapacityUseCaseTest {
         when(capacityPersistencePort.existByName("Cap1")).thenReturn(Mono.just(true));
 
         StepVerifier.create(useCase.saveCapacities(Flux.just(input)))
-                .expectComplete() // Ahora completamos sin error
+                .expectComplete()
                 .verify();
 
         verify(capacityPersistencePort).existByName("Cap1");
@@ -187,7 +187,8 @@ class CapacityUseCaseTest {
                 .thenReturn(Mono.just(Collections.emptyMap()));
         when(capacityPersistencePort.countAll()).thenReturn(Mono.just(0L));
 
-        StepVerifier.create(useCase.findPagedCapacities(0, 2, "technologyCount", true))
+
+        StepVerifier.create(useCase.findPagedCapacities(0, 2, "count", true))
                 .assertNext(response -> {
                     assertTrue(response.getItems().isEmpty());
                     assertEquals(0, response.getTotalItems());
@@ -208,9 +209,10 @@ class CapacityUseCaseTest {
                 .thenReturn(Mono.just(techMap));
         when(capacityPersistencePort.findByIds(List.of(2L, 1L)))
                 .thenReturn(Flux.just(cap2, cap1));
-        when(capacityPersistencePort.countAll()).thenReturn(Mono.just(2L));
+        when(capacityPersistencePort.countAll())
+                .thenReturn(Mono.just(2L));
 
-        StepVerifier.create(useCase.findPagedCapacities(0, 2, "technologyCount", true))
+        StepVerifier.create(useCase.findPagedCapacities(0, 2, "count", true))
                 .assertNext(response -> {
                     assertEquals(2, response.getItems().size());
                     assertEquals(2L, response.getItems().get(0).id());
@@ -234,11 +236,13 @@ class CapacityUseCaseTest {
 
         when(capacityTechnologyClientPort.getCapacityIdGroupedTechnologies(0, 2, true))
                 .thenReturn(Mono.just(techMap));
+
         when(capacityPersistencePort.findByIds(List.of(2L, 1L)))
                 .thenReturn(Flux.just(cap1));
-        when(capacityPersistencePort.countAll()).thenReturn(Mono.just(1L));
+        when(capacityPersistencePort.countAll())
+                .thenReturn(Mono.just(1L));
 
-        StepVerifier.create(useCase.findPagedCapacities(0, 2, "technologyCount", true))
+        StepVerifier.create(useCase.findPagedCapacities(0, 2, "count", true))
                 .assertNext(response -> {
                     assertEquals(1, response.getItems().size());
                     assertEquals(1L, response.getItems().get(0).id());
@@ -247,4 +251,86 @@ class CapacityUseCaseTest {
                 .verifyComplete();
     }
 
+    @Test
+    void buildCapacityWithTechnologiesItemsSuccessTest() {
+        List<Long> ids = List.of(1L, 2L);
+
+        Capacity cap1 = new Capacity(1L, "C1", "Desc1");
+        Capacity cap2 = new Capacity(2L, "C2", "Desc2");
+        List<Capacity> capacities = List.of(cap1, cap2);
+
+        Map<Long, List<TechnologySummary>> techMap = Map.of(
+                1L, List.of(new TechnologySummary(10L, "Tech1")),
+                2L, List.of(new TechnologySummary(20L, "Tech2"))
+        );
+
+        when(capacityPersistencePort.findByIds(ids))
+                .thenReturn(Flux.fromIterable(capacities));
+        when(capacityTechnologyClientPort.findTechnologiesByCapacityIds(ids))
+                .thenReturn(Mono.just(techMap));
+
+        StepVerifier.create(useCase.buildCapacityWithTechnologiesItems(ids))
+                .assertNext(list -> {
+                    assertEquals(2, list.size());
+                    assertEquals("C1", list.get(0).name());
+                    assertEquals(10L, list.get(0).technologies().get(0).id());
+                    assertEquals("C2", list.get(1).name());
+                    assertEquals(20L, list.get(1).technologies().get(0).id());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void buildCapacityWithTechnologiesItemsEmptyListTest() {
+        List<Long> ids = List.of();
+
+        when(capacityPersistencePort.findByIds(ids)).thenReturn(Flux.empty());
+        when(capacityTechnologyClientPort.findTechnologiesByCapacityIds(ids)).thenReturn(Mono.just(Map.of()));
+
+        StepVerifier.create(useCase.buildCapacityWithTechnologiesItems(ids))
+                .expectNextMatches(List::isEmpty)
+                .verifyComplete();
+    }
+
+    @Test
+    void validateCapacityIdsExistSuccessTest() {
+        List<Long> ids = List.of(1L, 2L);
+
+        Capacity cap1 = new Capacity(1L, "C1", "Desc1");
+        Capacity cap2 = new Capacity(2L, "C2", "Desc2");
+
+        when(capacityPersistencePort.findByIds(ids))
+                .thenReturn(Flux.just(cap1, cap2));
+
+        StepVerifier.create(useCase.validateCapacityIdsExist(ids))
+                .expectNext(List.of(1L, 2L))
+                .verifyComplete();
+    }
+
+    @Test
+    void validateCapacityIdsExistEmptyInputTest() {
+        List<Long> ids = List.of();
+
+        StepVerifier.create(useCase.validateCapacityIdsExist(ids))
+                .expectNext(Collections.emptyList())
+                .verifyComplete();
+
+        verifyNoInteractions(capacityPersistencePort);
+    }
+
+    @Test
+    void validateCapacityIdsExistPartialMissingTest() {
+        List<Long> ids = List.of(1L, 2L, 3L);
+
+        Capacity cap1 = new Capacity(1L, "C1", "Desc1");
+
+        when(capacityPersistencePort.findByIds(ids))
+                .thenReturn(Flux.just(cap1));
+
+        StepVerifier.create(useCase.validateCapacityIdsExist(ids))
+                .expectNext(List.of(1L))
+                .verifyComplete();
+    }
+
 }
+

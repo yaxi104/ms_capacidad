@@ -7,27 +7,25 @@ public final class DatabaseConstants {
 
     // Columnas
     public static final String COLUMN_ID_CAPACITY = "id_capacity";
-    public static final String COLUMN_ID_TECH = "tech_id";
-    public static final String COLUMN_TECH_NAME = "tech_name";
-    public static final String COLUMN_ID_TECHNOLOGY = "id_technology";
+    public static final String COLUMN_ID_BOOTCAMP = "id_bootcamp";
 
     // Queries
-    public static final String PAGED_CAPACITY_IDS_QUERY = """
-            SELECT id_capacity
+    public static final String PAGED_BOOTCAMP_IDS_QUERY = """
+            SELECT id_bootcamp
             FROM (
-                SELECT id_capacity, COUNT(id_technology) AS tech_count
-                FROM TECHNOLOGY.CAPACITY_TECHNOLOGY
-                GROUP BY id_capacity
-                ORDER BY tech_count %s
+                SELECT id_bootcamp, COUNT(id_capacity) AS cap_count
+                FROM CAPACITY.BOOTCAMP_CAPACITY
+                GROUP BY id_bootcamp
+                ORDER BY cap_count %s
             ) AS sub
             LIMIT :limit OFFSET :offset
             """;
 
-    public static final String FETCH_TECHNOLOGIES_QUERY = """
-            SELECT ct.%s, t.id AS %s, t.name AS %s
-            FROM TECHNOLOGY.CAPACITY_TECHNOLOGY ct
-            JOIN TECHNOLOGY.TECHNOLOGY t ON ct.id_technology = t.id
-            WHERE ct.%s IN (:capacityIds)
-            ORDER BY ct.%s ASC, t.name ASC
+    public static final String FETCH_CAPACITIES_BY_BOOTCAMP_IDS_QUERY = """
+            SELECT bc.%s, bc.%s
+            FROM CAPACITY.BOOTCAMP_CAPACITY bc
+            WHERE bc.%s IN (:bootcampIds)
+            ORDER BY bc.%s ASC, bc.%s ASC
             """;
+
 }
