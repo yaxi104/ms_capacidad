@@ -5,6 +5,7 @@ import com.reactivo.capacidad.domain.enums.TechnicalMessage;
 import com.reactivo.capacidad.domain.exceptions.BusinessException;
 import com.reactivo.capacidad.domain.model.Capacity;
 import com.reactivo.capacidad.domain.model.CapacityIdTechnologies;
+import com.reactivo.capacidad.domain.model.TechnologySummary;
 import com.reactivo.capacidad.domain.spi.CapacityPersistencePort;
 import com.reactivo.capacidad.domain.spi.CapacityTechnologyClientPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,8 +18,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -127,7 +133,6 @@ class CapacityUseCaseTest {
 
     @Test
     void saveCapacitiesPartialExistingAndNewTest() {
-        // Mezcla de uno existente y otro nuevo
         CapacityIdTechnologies existing = new CapacityIdTechnologies("CapExist", "DescExist", List.of(1L, 2L, 3L));
         CapacityIdTechnologies newCap = new CapacityIdTechnologies("CapNew", "DescNew", List.of(4L, 5L, 6L));
         Capacity savedNewCapacity = new Capacity(2L, "CapNew", "DescNew");
@@ -148,4 +153,98 @@ class CapacityUseCaseTest {
         verify(capacityPersistencePort).save(any());
         verify(capacityTechnologyClientPort).saveAll(any());
     }
+
+    @Test
+    void findPagedCapacitiesByNameTest() {
+        Capacity cap1 = new Capacity(1L, "A", "Desc A");
+        Capacity cap2 = new Capacity(2L, "B", "Desc B");
+        List<Capacity> capacities = List.of(cap1, cap2);
+        List<Long> capacityIds = capacities.stream().map(Capacity::id).toList();
+        Map<Long, List<TechnologySummary>> techMap = Map.of(
+                1L, List.of(new TechnologySummary(10L, "Tech1")),
+                2L, List.of(new TechnologySummary(20L, "Tech2"))
+        );
+
+        when(capacityPersistencePort.findAllPaged(0, 2, "name", true))
+                .thenReturn(Flux.fromIterable(capacities));
+        when(capacityPersistencePort.countAll()).thenReturn(Mono.just(2L));
+        when(capacityTechnologyClientPort.findTechnologiesByCapacityIds(capacityIds))
+                .thenReturn(Mono.just(techMap));
+
+        StepVerifier.create(useCase.findPagedCapacities(0, 2, "name", true))
+                .assertNext(response -> {
+                    assertEquals(2, response.getItems().size());
+                    assertEquals("A", response.getItems().get(0).name());
+                    assertEquals(1L, response.getItems().get(0).id());
+                    assertEquals("Tech1", response.getItems().get(0).technologies().get(0).name());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void findPagedCapacitiesByTechnologyCountEmptyTest() {
+        when(capacityTechnologyClientPort.getCapacityIdGroupedTechnologies(0, 2, true))
+                .thenReturn(Mono.just(Collections.emptyMap()));
+        when(capacityPersistencePort.countAll()).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(useCase.findPagedCapacities(0, 2, "technologyCount", true))
+                .assertNext(response -> {
+                    assertTrue(response.getItems().isEmpty());
+                    assertEquals(0, response.getTotalItems());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void findPagedCapacitiesByTechnologyCountWithDataTest() {
+        Capacity cap1 = new Capacity(1L, "Cap1", "Desc1");
+        Capacity cap2 = new Capacity(2L, "Cap2", "Desc2");
+
+        Map<Long, List<TechnologySummary>> techMap = new LinkedHashMap<>();
+        techMap.put(2L, List.of(new TechnologySummary(20L, "TechB")));
+        techMap.put(1L, List.of(new TechnologySummary(10L, "TechA")));
+
+        when(capacityTechnologyClientPort.getCapacityIdGroupedTechnologies(0, 2, true))
+                .thenReturn(Mono.just(techMap));
+        when(capacityPersistencePort.findByIds(List.of(2L, 1L)))
+                .thenReturn(Flux.just(cap2, cap1));
+        when(capacityPersistencePort.countAll()).thenReturn(Mono.just(2L));
+
+        StepVerifier.create(useCase.findPagedCapacities(0, 2, "technologyCount", true))
+                .assertNext(response -> {
+                    assertEquals(2, response.getItems().size());
+                    assertEquals(2L, response.getItems().get(0).id());
+                    assertEquals("Cap2", response.getItems().get(0).name());
+                    assertEquals("TechB", response.getItems().get(0).technologies().get(0).name());
+
+                    assertEquals(1L, response.getItems().get(1).id());
+                    assertEquals("Cap1", response.getItems().get(1).name());
+                    assertEquals("TechA", response.getItems().get(1).technologies().get(0).name());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void findPagedCapacitiesByTechnologyCountPartialMissingCapTest() {
+        Capacity cap1 = new Capacity(1L, "Cap1", "Desc1");
+
+        Map<Long, List<TechnologySummary>> techMap = new LinkedHashMap<>();
+        techMap.put(2L, List.of(new TechnologySummary(20L, "TechB")));
+        techMap.put(1L, List.of(new TechnologySummary(10L, "TechA")));
+
+        when(capacityTechnologyClientPort.getCapacityIdGroupedTechnologies(0, 2, true))
+                .thenReturn(Mono.just(techMap));
+        when(capacityPersistencePort.findByIds(List.of(2L, 1L)))
+                .thenReturn(Flux.just(cap1));
+        when(capacityPersistencePort.countAll()).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(useCase.findPagedCapacities(0, 2, "technologyCount", true))
+                .assertNext(response -> {
+                    assertEquals(1, response.getItems().size());
+                    assertEquals(1L, response.getItems().get(0).id());
+                    assertEquals("Cap1", response.getItems().get(0).name());
+                })
+                .verifyComplete();
+    }
+
 }
