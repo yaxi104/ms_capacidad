@@ -1,12 +1,18 @@
 package com.reactivo.capacidad.application.config;
 
+import com.reactivo.capacidad.domain.api.BootcampCapacityServicePort;
 import com.reactivo.capacidad.domain.api.CapacityServicePort;
 import com.reactivo.capacidad.domain.api.TransactionalPort;
+import com.reactivo.capacidad.domain.spi.BootcampCapacityPersistencePort;
 import com.reactivo.capacidad.domain.spi.CapacityPersistencePort;
 import com.reactivo.capacidad.domain.spi.CapacityTechnologyClientPort;
+import com.reactivo.capacidad.domain.usecase.BootcampCapacityUseCase;
 import com.reactivo.capacidad.domain.usecase.CapacityUseCase;
 import com.reactivo.capacidad.infrastructure.adapters.client.CapacityTechnologyClientAdapter;
 import com.reactivo.capacidad.infrastructure.adapters.configuration.TransactionalPortSpring;
+import com.reactivo.capacidad.infrastructure.adapters.persistence.bootcampcapacity.BootcampCapacityPersistenceAdapter;
+import com.reactivo.capacidad.infrastructure.adapters.persistence.bootcampcapacity.mapper.BootcampCapacityEntityMapper;
+import com.reactivo.capacidad.infrastructure.adapters.persistence.bootcampcapacity.repository.BootcampCapacityRepository;
 import com.reactivo.capacidad.infrastructure.adapters.persistence.capacity.CapacityPersistenceAdapter;
 import com.reactivo.capacidad.infrastructure.adapters.persistence.capacity.mapper.CapacityEntityMapper;
 import com.reactivo.capacidad.infrastructure.adapters.persistence.capacity.repository.CapacityRepository;
@@ -24,6 +30,8 @@ public class UseCasesConfig {
     private final CapacityRepository capacityRepository;
     private final CapacityEntityMapper capacityEntityMapper;
     private final WebClient capacityTechnologyWebClient;
+    private final BootcampCapacityRepository bootcampCapacityRepository;
+    private final BootcampCapacityEntityMapper bootcampCapacityEntityMapper;
     private final TransactionalOperator transactionalOperator;
     private final DatabaseClient databaseClient;
 
@@ -43,9 +51,20 @@ public class UseCasesConfig {
     }
 
     @Bean
+    public BootcampCapacityPersistencePort bootcampCapacityPersistencePort() {
+        return new BootcampCapacityPersistenceAdapter(bootcampCapacityRepository, bootcampCapacityEntityMapper, transactionalOperator, databaseClient);
+
+    }
+
+    @Bean
     public CapacityServicePort capacityServicePort(CapacityPersistencePort capacityPersistencePort,
                                                    CapacityTechnologyClientPort capacityTechnologyClientPort,
                                                    TransactionalPort transactionalPort) {
         return new CapacityUseCase(capacityPersistencePort, capacityTechnologyClientPort, transactionalPort);
+    }
+
+    @Bean
+    public BootcampCapacityServicePort bootcampCapacityServicePort(BootcampCapacityPersistencePort bootcampCapacityPersistencePort) {
+        return new BootcampCapacityUseCase(bootcampCapacityPersistencePort);
     }
 }
