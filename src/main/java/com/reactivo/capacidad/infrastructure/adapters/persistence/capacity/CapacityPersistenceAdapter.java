@@ -6,6 +6,7 @@ import com.reactivo.capacidad.infrastructure.adapters.persistence.capacity.mappe
 import com.reactivo.capacidad.infrastructure.adapters.persistence.capacity.repository.CapacityRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -40,6 +41,7 @@ public class CapacityPersistenceAdapter implements CapacityPersistencePort {
     }
 
     @Override
+    @Transactional
     public Mono<Void> deleteById(Long id) {
         return capacityRepository.deleteById(id);
     }
@@ -81,6 +83,33 @@ public class CapacityPersistenceAdapter implements CapacityPersistencePort {
                         row.get("description", String.class)
                 ))
                 .all();
+    }
+
+    @Override
+    @Transactional
+    public Mono<Void> deleteBootcampCapacity(Long bootcampId) {
+        return databaseClient.sql("DELETE FROM bootcamp_capacity WHERE id_bootcamp = :id")
+                .bind("id", bootcampId)
+                .then();
+    }
+
+    @Override
+    public Flux<Long> findOrphanedCapacities() {
+        return databaseClient.sql("""
+                        SELECT c.id
+                        FROM capacity c
+                        LEFT JOIN bootcamp_capacity bc ON c.id = bc.id_capacity
+                        GROUP BY c.id
+                        HAVING COUNT(bc.id_bootcamp) = 0
+                        """)
+                .map(row -> row.get("id", Long.class))
+                .all();
+    }
+
+    @Override
+    @Transactional
+    public Mono<Void> deleteCapacity(Long capacityId) {
+        return capacityRepository.deleteById(capacityId);
     }
 
 }

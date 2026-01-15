@@ -17,4 +17,6 @@ public interface CapacityServicePort {
     Mono<List<CapacityWithTechnologies>> buildCapacityWithTechnologiesItems(List<Long> capacityIds);
 
     Mono<List<Long>> validateCapacityIdsExist(List<Long> capacityIds);
+
+    Mono<List<Long>> deleteCapacitiesByBootcamp(Long bootcampId);
 }

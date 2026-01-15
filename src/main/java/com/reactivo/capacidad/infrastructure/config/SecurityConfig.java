@@ -31,6 +31,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.POST, "/bootcamp-capacidad").hasRole(USER_ADMIN)
                         .pathMatchers(HttpMethod.POST, "/capacidades/bootcamps").hasRole(USER_ADMIN)
                         .pathMatchers(HttpMethod.GET, "/bootcamp-capacidades").hasRole(USER_ADMIN)
+                        .pathMatchers(HttpMethod.DELETE, "/capacidades/eliminar-por-bootcamp/**").hasRole(USER_ADMIN)
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)

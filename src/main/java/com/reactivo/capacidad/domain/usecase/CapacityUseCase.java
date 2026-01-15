@@ -144,6 +144,17 @@ public class CapacityUseCase implements CapacityServicePort {
                 .collectList();
     }
 
+    @Override
+    public Mono<List<Long>> deleteCapacitiesByBootcamp(Long bootcampId) {
+        return capacityPersistencePort.deleteBootcampCapacity(bootcampId)
+                .thenMany(capacityPersistencePort.findOrphanedCapacities())
+                .collectList()
+                .flatMap(ids -> Flux.fromIterable(ids)
+                        .flatMap(capacityPersistencePort::deleteCapacity)
+                        .then(Mono.just(ids))
+                );
+    }
+
     private Mono<Void> saveTechnologies(Capacity capacity, List<Long> techIds) {
         return capacityTechnologyClientPort.saveAll(
                 Flux.fromIterable(techIds)

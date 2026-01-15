@@ -137,5 +137,57 @@ public class CapacityHandlerImpl {
                                         .message(TechnicalMessage.INTERNAL_ERROR.getMessage())
                                         .build())));
     }
+
+    public Mono<ServerResponse> deleteCapacitiesByBootcamp(ServerRequest request) {
+        String messageId = handlerUtils.getMessageId(request);
+        String token = request.headers().firstHeader(HttpHeaders.AUTHORIZATION);
+
+        Long bootcampId = Long.valueOf(request.pathVariable("bootcampId"));
+
+        return capacityServicePort.deleteCapacitiesByBootcamp(bootcampId)
+                .flatMap(deletedCapacityIds ->
+                        ServerResponse.ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(deletedCapacityIds)
+                )
+                .contextWrite(ctx -> {
+                    if (messageId != null) ctx = ctx.put(X_MESSAGE_ID, messageId);
+                    if (token != null) ctx = ctx.put(AUTH_TOKEN, token);
+                    return ctx;
+                })
+                .doOnSuccess(v ->
+                        log.info("Capacities deleted by bootcamp {} successfully. messageId={}",
+                                bootcampId, messageId))
+                .onErrorResume(BusinessException.class, ex ->
+                        handlerUtils.buildErrorResponse(
+                                HttpStatus.BAD_REQUEST,
+                                messageId,
+                                ex.getTechnicalMessage(),
+                                List.of(ErrorDTO.builder()
+                                        .code(ex.getTechnicalMessage().getCode())
+                                        .message(ex.getTechnicalMessage().getMessage())
+                                        .param(ex.getTechnicalMessage().getParam())
+                                        .build())))
+                .onErrorResume(TechnicalException.class, ex ->
+                        handlerUtils.buildErrorResponse(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                messageId,
+                                ex.getTechnicalMessage(),
+                                List.of(ErrorDTO.builder()
+                                        .code(ex.getTechnicalMessage().getCode())
+                                        .message(ex.getTechnicalMessage().getMessage())
+                                        .param(ex.getTechnicalMessage().getParam())
+                                        .build())))
+                .onErrorResume(ex ->
+                        handlerUtils.buildErrorResponse(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                messageId,
+                                TechnicalMessage.INTERNAL_ERROR,
+                                List.of(ErrorDTO.builder()
+                                        .code(TechnicalMessage.INTERNAL_ERROR.getCode())
+                                        .message(TechnicalMessage.INTERNAL_ERROR.getMessage())
+                                        .build())));
+    }
+
 }
 

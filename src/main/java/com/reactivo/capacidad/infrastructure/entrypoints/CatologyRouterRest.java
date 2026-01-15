@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
+import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
 import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
@@ -19,6 +20,7 @@ public class CatologyRouterRest {
     public RouterFunction<ServerResponse> routerFunction(CapacityHandlerImpl capacityHandler) {
         return RouterFunctions
                 .route(POST("/capacidades").and(accept(MediaType.APPLICATION_JSON)), capacityHandler::createCapacity)
-                .andRoute(GET("/capacidades/paginado").and(accept(MediaType.APPLICATION_JSON)), capacityHandler::getPagedCapacities);
+                .andRoute(GET("/capacidades/paginado").and(accept(MediaType.APPLICATION_JSON)), capacityHandler::getPagedCapacities)
+                .andRoute(DELETE("/capacidades/eliminar-por-bootcamp/{bootcampId}").and(accept(MediaType.APPLICATION_JSON)), capacityHandler::deleteCapacitiesByBootcamp);
     }
 }

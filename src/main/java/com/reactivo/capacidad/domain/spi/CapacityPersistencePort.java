@@ -22,4 +22,11 @@ public interface CapacityPersistencePort {
 
     Flux<Capacity> findByIds(List<Long> ids);
 
+
+    Mono<Void> deleteBootcampCapacity(Long bootcampId);
+
+    Flux<Long> findOrphanedCapacities();
+
+    Mono<Void> deleteCapacity(Long capacityId);
+
 }
