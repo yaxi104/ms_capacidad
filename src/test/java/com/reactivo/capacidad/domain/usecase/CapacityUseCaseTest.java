@@ -26,6 +26,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -330,6 +331,93 @@ class CapacityUseCaseTest {
         StepVerifier.create(useCase.validateCapacityIdsExist(ids))
                 .expectNext(List.of(1L))
                 .verifyComplete();
+    }
+
+    @Test
+    void deleteCapacitiesByBootcampSuccessTest() {
+        Long bootcampId = 1L;
+
+        when(capacityPersistencePort.deleteBootcampCapacity(bootcampId))
+                .thenReturn(Mono.empty());
+
+        when(capacityPersistencePort.findOrphanedCapacities())
+                .thenReturn(Flux.just(10L, 20L));
+
+        when(capacityPersistencePort.deleteCapacity(10L))
+                .thenReturn(Mono.empty());
+
+        when(capacityPersistencePort.deleteCapacity(20L))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(useCase.deleteCapacitiesByBootcamp(bootcampId))
+                .expectNext(List.of(10L, 20L))
+                .verifyComplete();
+
+        verify(capacityPersistencePort).deleteBootcampCapacity(bootcampId);
+        verify(capacityPersistencePort).findOrphanedCapacities();
+        verify(capacityPersistencePort).deleteCapacity(10L);
+        verify(capacityPersistencePort).deleteCapacity(20L);
+    }
+
+    @Test
+    void deleteCapacitiesByBootcampWithoutOrphansTest() {
+        Long bootcampId = 2L;
+
+        when(capacityPersistencePort.deleteBootcampCapacity(bootcampId))
+                .thenReturn(Mono.empty());
+
+        when(capacityPersistencePort.findOrphanedCapacities())
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(useCase.deleteCapacitiesByBootcamp(bootcampId))
+                .expectNext(List.of())
+                .verifyComplete();
+
+        verify(capacityPersistencePort).deleteBootcampCapacity(bootcampId);
+        verify(capacityPersistencePort).findOrphanedCapacities();
+        verify(capacityPersistencePort, never()).deleteCapacity(anyLong());
+    }
+
+    @Test
+    void deleteCapacitiesByBootcampFailsOnDeleteRelationTest() {
+        Long bootcampId = 3L;
+        RuntimeException error = new RuntimeException("DB error");
+
+        when(capacityPersistencePort.deleteBootcampCapacity(bootcampId))
+                .thenReturn(Mono.error(error));
+
+        when(capacityPersistencePort.findOrphanedCapacities())
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(useCase.deleteCapacitiesByBootcamp(bootcampId))
+                .expectErrorMatches(ex -> ex.equals(error))
+                .verify();
+
+        verify(capacityPersistencePort).deleteBootcampCapacity(bootcampId);
+        verify(capacityPersistencePort).findOrphanedCapacities();
+        verify(capacityPersistencePort, never()).deleteCapacity(anyLong());
+    }
+
+    @Test
+    void deleteCapacitiesByBootcampFailsOnDeleteCapacityTest() {
+        Long bootcampId = 4L;
+
+        when(capacityPersistencePort.deleteBootcampCapacity(bootcampId))
+                .thenReturn(Mono.empty());
+
+        when(capacityPersistencePort.findOrphanedCapacities())
+                .thenReturn(Flux.just(99L));
+
+        when(capacityPersistencePort.deleteCapacity(99L))
+                .thenReturn(Mono.error(new RuntimeException("Delete error")));
+
+        StepVerifier.create(useCase.deleteCapacitiesByBootcamp(bootcampId))
+                .expectError()
+                .verify();
+
+        verify(capacityPersistencePort).deleteBootcampCapacity(bootcampId);
+        verify(capacityPersistencePort).findOrphanedCapacities();
+        verify(capacityPersistencePort).deleteCapacity(99L);
     }
 
 }
